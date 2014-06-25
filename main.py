@@ -141,7 +141,11 @@ class MyGamepad(EventProtocol):
     def send(self):
         # self.sock.send(self.status.)
         print(str(self.status.player1))
-        self.sock.send(self.status.build())
+        try:
+            self.sock.send(self.status.build())
+        except socket.error as e :
+            print(e)
+            
 
     def buttonA(self, event):
         print("button A: {}".format(event.value))
@@ -169,11 +173,23 @@ class MyGamepad(EventProtocol):
             self.status.player1.xp = True
             self.status.player1.xn = True
             self.status.player1.yp = True
+            self.status.player1.yn = True
             self.status.player1.a = True
             self.status.player1.b = True
             self.status.player1.x = True
             self.status.player1.y = True
-            self.send()
+        else:
+            self.status.player1.xp = False
+            self.status.player1.xn = False
+            self.status.player1.yp = False
+            self.status.player1.yn = False
+            self.status.player1.a = False
+            self.status.player1.b = False
+            self.status.player1.x = False
+            self.status.player1.y = False
+
+        self.send()
+
 
 
     def dpadX(self, event):
