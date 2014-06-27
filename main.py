@@ -36,7 +36,8 @@ PlayerKeyPacket = Struct("PlayerKeyPacket",
 )
 
 #pad_device = u"/dev/input/by-id/usb-©Microsoft_Corporation_Controller_136DB16-event-joystick"
-pad_device = u"/dev/input/event4"
+pad_device_1 = "/dev/input/event0"
+pad_device_2 = "/dev/input/event1"
 
 class Xbox360EventMapping(BaseEventMapping):
 
@@ -74,8 +75,8 @@ class Xbox360EventMapping(BaseEventMapping):
 
 class Players(object):
     def __init__(self):
-        self.player1=KeyStatus()
-        self.player2=KeyStatus()
+        self.player1=KeyStatus(1)
+        self.player2=KeyStatus(2)
 
     def build(self):
         return PlayerKeyPacket.build(
@@ -103,7 +104,8 @@ class Players(object):
 
 
 class KeyStatus(object):
-    def __init__(self):
+    def __init__(self, player_id):
+        self.player_id = player_id
         self.xp=False
         self.xn=False
         self.yp=False
@@ -116,7 +118,8 @@ class KeyStatus(object):
 
 
     def __str__(self):
-        return str("xp {} xn {} yp {} yn {} a {} b {} x {} y {} ".format(self.xp,
+        return str("{} -> xp {} xn {} yp {} yn {} a {} b {} x {} y {} ".format(self.player_id,
+                                                                         self.xp,
                                                                          self.xn,
                                                                          self.yp,
                                                                          self.yn,
@@ -125,68 +128,89 @@ class KeyStatus(object):
                                                                          self.x,
                                                                          self.y))
 
-HOST="192.168.1.22"
+HOST="192.168.1.106"
 PORT=4242
 
-class MyGamepad(EventProtocol):
-
-    def __init__(self, *args, **kwargs):
-        EventProtocol.__init__(self, *args, **kwargs)
-
+class MySender(object):
+    def __init__(self):
         self.status = Players()
+
         self.sock = socket.socket(type=socket.SOCK_DGRAM)
         self.sock.connect((HOST, PORT))
         self.sock.setblocking(0)
 
     def send(self):
         # self.sock.send(self.status.)
-        print(str(self.status.player1))
+        # print(str(self.status.player1))
+        # print(str(self.status.player2))
         try:
-            self.sock.send(self.status.build())
+            reactor.callLater(0.0, self.sock.send, self.status.build() )
+            # self.sock.send(self.status.build())
         except socket.error as e :
             print(e)
+
+
+class MyGamepad(EventProtocol):
+
+    def __init__(self, sender, player, *args, **kwargs):
+
+        self.sender = sender
+        self.player = self.sender.status.player1 if player == 1 else self.sender.status.player2
+        self.player_id = player
+
+        EventProtocol.__init__(self, *args, **kwargs)
+
+        print("Init gamepad for player {} ({})".format(self.player_id, self.player))
+
+        # self.status = Players()
+
+
+    def send(self):
+        self.sender.send()
+        # reactor.callLater(0.0, self.send, None)
+
             
 
     def buttonA(self, event):
         print("button A: {}".format(event.value))
-        self.status.player1.a = event.value != 0x0
+        self.player.a = event.value != 0x0
         self.send()
 
     def buttonB(self, event):
         print("button B: {}".format(event.value))
-        self.status.player1.b = event.value != 0x0
+        self.player.b = event.value != 0x0
         self.send()
 
     def buttonX(self, event):
         print("button X: {}".format(event.value))
-        self.status.player1.x = event.value != 0x0
+        self.player.x = event.value != 0x0
         self.send()
 
     def buttonY(self, event):
         print("button Y: {}".format(event.value))
-        self.status.player1.y = event.value != 0x0
+        self.player.y = event.value != 0x0
         self.send()
 
     def buttonXbox(self, event):
         print("button XBOX: {}".format(event.value))
         if event.value == 0x1:
-            self.status.player1.xp = True
-            self.status.player1.xn = True
-            self.status.player1.yp = True
-            self.status.player1.yn = True
-            self.status.player1.a = True
-            self.status.player1.b = True
-            self.status.player1.x = True
-            self.status.player1.y = True
+            self.player.xp = True
+            self.player.xn = True
+            self.player.yp = True
+            self.player.yn = True
+            self.player.a = True
+            self.player.b = True
+            self.player.x = True
+            self.player.y = True
         else:
-            self.status.player1.xp = False
-            self.status.player1.xn = False
-            self.status.player1.yp = False
-            self.status.player1.yn = False
-            self.status.player1.a = False
-            self.status.player1.b = False
-            self.status.player1.x = False
-            self.status.player1.y = False
+            self.player.xp = False
+            self.player.xn = False
+            self.player.yp = False
+            self.player.yn = False
+            self.player.a = False
+            self.player.b = False
+            self.player.x = False
+            self.player.y = False
 
         self.send()
 
@@ -195,27 +219,27 @@ class MyGamepad(EventProtocol):
     def dpadX(self, event):
         # print("dpadX: {}".format(event))
         if event.value == 0x0 :
-            self.status.player1.xp = False
-            self.status.player1.xn = False
+            self.player.xp = False
+            self.player.xn = False
         elif event.value == 0x1:
-            self.status.player1.xp = True
-            self.status.player1.xn = False
+            self.player.xp = True
+            self.player.xn = False
         else:
-            self.status.player1.xp = False
-            self.status.player1.xn = True
+            self.player.xp = False
+            self.player.xn = True
         self.send()
 
     def dpadY(self, event):
         # print("dpadY: {}".format(event))
         if event.value == 0x0 :
-            self.status.player1.yp = False
-            self.status.player1.yn = False
+            self.player.yp = False
+            self.player.yn = False
         elif event.value == 0x1:
-            self.status.player1.yp = False
-            self.status.player1.yn = True
+            self.player.yp = False
+            self.player.yn = True
         else:
-            self.status.player1.yp = True
-            self.status.player1.yn = False
+            self.player.yp = True
+            self.player.yn = False
         self.send()
 
 class EventSnifferCustom(EventProtocol):
@@ -231,12 +255,22 @@ class EventSnifferCustom(EventProtocol):
             return
         print "event: %s" % (unicode(event),)
 
-EventDevice(
-    MyGamepad(
+sender = MySender()
+
+dev1=EventDevice(
+    MyGamepad(sender, 1,
         InputEventFactory(),
         Xbox360EventMapping()),
-    pad_device).startReading()
+    pad_device_1)
 
+dev2=EventDevice(
+    MyGamepad( sender, 2,
+        InputEventFactory(),
+        Xbox360EventMapping()),
+    pad_device_2)
+
+dev1.startReading()
+dev2.startReading()
 
 # EventDevice(
 #     EventSnifferCustom(
